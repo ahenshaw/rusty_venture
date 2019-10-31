@@ -11,7 +11,7 @@ SQL_VENUE = '''SELECT venue_id, venue.name, venue.lat, venue.lon
                JOIN venue ON venue_id=venue.id
                WHERE club_id=?'''
                
-SQL_COST  = 'SELECT cost     FROM venue_venue WHERE home_id=? and away_id=?'
+SQL_COST  = 'SELECT cost FROM venue_venue WHERE home_id=? and away_id=?'
 
 def add_venues(data):
     db = sqlite3.connect(DATABASE)

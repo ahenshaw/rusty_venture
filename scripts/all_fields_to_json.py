@@ -9,9 +9,6 @@ rename the rest.  Filter on fields (if any selected).  Filtering works
 by checking if value is "in" the field.  Write out JSON.
 '''
 
-INPUT = 'season/B12.xml'
-OUTPUT = 'season/B12.json'
-
 DROP = ("textbox50" ,"textbox51", "textbox52", "TeamManager",
         "textbox25", "textbox26", "textbox28", "textbox29", 
         "textbox30", "FourthContact", "FourthEmail", "FourthCellPhone",

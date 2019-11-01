@@ -1,2 +1,2 @@
 [workspace]
-members = ["add_venue", "transform_report"]
+members = ["add_venue", "transform_report", "time_report"]

@@ -1,0 +1,10 @@
+<svg viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+<text x="0" y="0">This is a test</text>
+<g>
+<rect fill="yellow" height="5" stroke="black" stroke-width="0.5" width="12" x="0" y="10"/>
+<rect fill="yellow" height="5" stroke="black" stroke-width="0.5" width="0" x="12" y="10"/>
+<rect fill="yellow" height="5" stroke="black" stroke-width="0.5" width="3" x="12" y="10"/>
+<rect fill="yellow" height="5" stroke="black" stroke-width="0.5" width="5" x="15" y="10"/>
+<rect fill="yellow" height="5" stroke="black" stroke-width="0.5" width="10" x="20" y="10"/>
+</g>
+</svg>

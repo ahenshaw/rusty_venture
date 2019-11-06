@@ -2,7 +2,6 @@ import svgwrite as svg
 import json
 import random
 
-infile = '/repos/soccer_ng/season/B12C.json'
 BAR = 14
 HEIGHT = BAR*3
 bar_style = f'''font-size:{BAR-1}px;
@@ -21,8 +20,13 @@ stroke:black;
 stroke-width:0;
 fill:black'''
 def pp(minutes):
-    hr, min = divmod(minutes,60)
-    return f'{hr}:{min:02d}'
+    hr, minute = divmod(minutes,60)
+    if hr == 0:
+        return f'{minute:d}m'
+    elif minute==0:
+        return f'{hr}h'
+    else:
+        return f'{hr}h{minute:d}m'
 
 def timebar(doc, times, x, y, fill) :
     group = doc.svg(x=x, y=y, style=bar_style)
@@ -42,36 +46,51 @@ def timebar(doc, times, x, y, fill) :
     group.add(doc.text(f"{pp(total//num)}", insert=(sx+5,BAR-2)))
     return group, total
 
-with open(infile) as fh:
-    data = json.load(fh)
 
-rows = len(data['teams']) + 1
-doc = svg.Drawing(filename="/repos/soccer_ng/season/test.svg", 
-                  style=label_style,
-                  size=("100%", rows*HEIGHT),)
-base = 400
-ends = []
-for i, team in enumerate(data['teams']):
-    y = (i+1)*HEIGHT
-    doc.add(doc.text(team['name'], text_anchor="end", insert = (base-10, y)))
-    times = [10*(random.randint(0, 100)//10) for i in range(5)]
-    group, end = timebar(doc, times, base, y-5, '#66cc99')
-    doc.add(group)
-    ends.append(end)
-    times = [10*(random.randint(0, 100)//10) for i in range(5)]
-    group, end = timebar(doc, times, base, y-5-BAR, '#cc667f')
-    doc.add(group)
-    ends.append(end)
+def process(data, outfile):
+    rows = len(data['teams']) + 1
+    doc = svg.Drawing(filename=outfile,
+                      style=label_style,
+                      size=("100%", rows*HEIGHT),)
+    base = 400
+    ends = []
+    for i, team in enumerate(data['teams']):
+        y = (i+1)*HEIGHT
+        doc.add(doc.text(team['name'], text_anchor="end", insert = (base-10, y)))
+        times = [10*(random.randint(0, 100)//10) for i in range(5)]
+        group, end = timebar(doc, times, base, y-5, '#66cc99')
+        doc.add(group)
+        ends.append(end)
+        times = [10*(random.randint(0, 100)//10) for i in range(5)]
+        group, end = timebar(doc, times, base, y-5-BAR, '#cc667f')
+        doc.add(group)
+        ends.append(end)
 
-end_time = 60*((max(ends) + 59)//60)
-print(end_time, max(ends))
-for i, t in enumerate(range(0, end_time+59, 60)):
-    doc.add(doc.line(start=(base+t, 0), 
-            end=(base+t, y+HEIGHT), 
-            stroke="gray", 
-            stroke_opacity=0.3,
-            style="stroke-width:1"))
-    doc.add(doc.text(f'{i}:00', insert = (base+t, BAR), style=bar_style, ))
-doc.attribs['width']=base+end_time+60
+    end_time = 60*((max(ends) + 59)//60)
+    print(end_time, max(ends))
+    for i, t in enumerate(range(0, end_time+59, 60)):
+        doc.add(doc.line(start=(base+t, 0), 
+                end=(base+t, y+HEIGHT), 
+                stroke="gray", 
+                stroke_opacity=0.3,
+                style="stroke-width:1"))
+        doc.add(doc.text(f'{i}:00', insert = (base+t, BAR), style=bar_style, ))
+    doc.attribs['width']=base+end_time+60
+    doc.save()
 
-doc.save()
+
+if __name__ == '__main__':
+    import argparse
+    import sys
+
+    # test purposes
+    sys.argv.append('B12C')
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('division')
+    args = parser.parse_args()
+    infile = '/repos/soccer_ng/season/{}.json'.format(args.division)
+    outfile = '/repos/soccer_ng/season/{}.svg'.format(args.division)
+    with open(infile) as fh:
+        data = json.load(fh)
+        doc = process(data, outfile)

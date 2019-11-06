@@ -11,4 +11,5 @@ quick-xml = "0.17.0"
 serde_json = "1.0.41"
 serde = {version = "1.0.102", features = ["derive"] }
 clap = "*"
+counter = "0.4.3"
 

@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use serde_json;
 use serde::{Deserialize, Serialize};
 use clap::App;
+use counter::Counter;
 
-const MAP: &'static str = "Comment        comment 
+const MAP: &str = "Comment        comment 
     ClubName       clubname 
     teamName       name 
     textbox15      gssa_id
@@ -83,7 +84,34 @@ fn read_and_filter(src: &str, filters: &HashMap<String, String>) -> Division {
     data
 
 }
-
+fn show(data: &Division) {
+    println!("\nInteresting Fields (number of items is between 1 and 10)");
+    let mut attrs = Vec::new();
+    for line in MAP.lines() {
+        let vals:Vec<_> = line.split_whitespace().collect();
+        let value = vals[1].to_string();
+        attrs.push(value.clone());
+    }
+    for attr in attrs.iter() {
+        let counts = data.teams
+            .iter()
+            .filter_map(|t| t.get(attr))
+            .collect::<Counter<_>>()
+            .most_common_ordered();
+        if counts.len() > 1 && counts.len() < 10 { 
+            let mut total = 0;
+            println!("-- {} --", attr);
+            for (val, count) in counts {
+                total += count;
+                println!("    {:3}: {}", count, val);
+            }
+            let missing = data.teams.len() - total;
+            if missing > 0 {
+                println!(r#"    {:3}: missing items"#, missing);
+            }
+        }
+    }
+}
 fn main() {
     let mut mapping = HashMap::new();
     for line in MAP.lines() {
@@ -93,7 +121,7 @@ fn main() {
 
     // generate filter options from mapping table
     let filter_options = mapping.values()
-                        .map(|v| format!("--{}= [{}]", v, v))
+                        .map(|v| format!("--{}= [{}] 'filter option'", v, v))
                         .collect::<Vec<String>>()
                         .join("\n");
 
@@ -102,7 +130,8 @@ fn main() {
                     .author("Andrew Henshaw")
                     .about("Transform ADG report into JSON, with optional filtering.")
                     .args_from_usage("<INPUT>  'Sets the input base filename to use'
-                                      <OUTPUT> 'Sets the output base filename to use'")
+                                      -o --output [OUTPUT] 'Write output to JSON file'
+                                      -s --show 'Show the count of attribute values")
                     .args_from_usage(&filter_options)
                     .get_matches();
 
@@ -115,11 +144,15 @@ fn main() {
     }
 
     let input    = matches.value_of("INPUT").unwrap();
-    let output   = matches.value_of("OUTPUT").unwrap();
     let data     = read_and_filter(input, &filters);
-    let filename = format!("/repos/soccer_ng/season/{}.json", output);
-    let outfile  = File::create(&filename).unwrap();
-    let _result  = serde_json::to_writer_pretty(outfile, &data);
+    if matches.is_present("show") {
+        show(&data);
+    }
+    if let Some(output) = matches.value_of("output") {
+        let filename = format!("/repos/soccer_ng/season/{}.json", output);
+        let outfile  = File::create(&filename).unwrap();
+        let _result  = serde_json::to_writer_pretty(outfile, &data);
+        println!("\nCreated {}\n{} teams written", &filename, data.teams.len());
+    }
 
-    println!("\nCreated {}\n{} teams written", &filename, data.teams.len());
 }

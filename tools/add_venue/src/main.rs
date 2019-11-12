@@ -97,7 +97,7 @@ fn main() {
 
 
     if let Some(division) = params.value_of("DIVISION") {
-        let filename = format!("/repos/soccer_ng/season/{}.json", division);
+        let filename = format!("{}.json", division);
         let infile = File::open(&filename).unwrap();
         let mut data:Division = serde_json::from_reader(infile).unwrap();
         if add_venues(&mut data) {

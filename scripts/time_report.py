@@ -1,6 +1,6 @@
 import svgwrite as svg
 import json
-import random
+from collections import defaultdict
 
 BAR = 14
 HEIGHT = BAR*3
@@ -33,7 +33,8 @@ def timebar(doc, times, x, y, fill) :
     sx = 0
     longest = 0
     total = 0
-    for width in sorted(times, reverse=True):
+    # for width in sorted(times, reverse=True):
+    for width in times:
         total += width
         width = max(width, 2) # make box show up
         group.add(doc.rect(fill=fill, 
@@ -48,6 +49,12 @@ def timebar(doc, times, x, y, fill) :
 
 
 def process(data, outfile):
+    homes = defaultdict(list)
+    aways = defaultdict(list)
+    for _, home, away, t in data['pairings']:
+        homes[home].append(t)
+        aways[away].append(t)
+
     rows = len(data['teams']) + 1
     doc = svg.Drawing(filename=outfile,
                       style=label_style,
@@ -57,12 +64,13 @@ def process(data, outfile):
     for i, team in enumerate(data['teams']):
         y = (i+1)*HEIGHT
         doc.add(doc.text(team['name'], text_anchor="end", insert = (base-10, y)))
-        times = [10*(random.randint(0, 100)//10) for i in range(5)]
-        group, end = timebar(doc, times, base, y-5, '#66cc99')
+
+        key = team['flt_pos']
+        group, end = timebar(doc, aways[key], base, y-5, '#66cc99')
         doc.add(group)
         ends.append(end)
-        times = [10*(random.randint(0, 100)//10) for i in range(5)]
-        group, end = timebar(doc, times, base, y-5-BAR, '#cc667f')
+
+        group, end = timebar(doc, homes[key], base, y-5-BAR, '#cc667f')
         doc.add(group)
         ends.append(end)
 
@@ -84,13 +92,11 @@ if __name__ == '__main__':
     import sys
 
     # test purposes
-    sys.argv.append('B12C')
-
     parser = argparse.ArgumentParser()
     parser.add_argument('division')
     args = parser.parse_args()
-    infile = '/repos/soccer_ng/season/{}.json'.format(args.division)
-    outfile = '/repos/soccer_ng/season/{}.svg'.format(args.division)
+    infile = '{}.json'.format(args.division)
+    outfile = '{}.svg'.format(args.division)
     with open(infile) as fh:
         data = json.load(fh)
         doc = process(data, outfile)

@@ -32,7 +32,7 @@ struct Division {
 fn read_and_filter(src: &str, filters: &HashMap<String, String>) -> Division {
     let mut data = Division{teams: Vec::new(),};
 
-    let filename = format!("/repos/soccer_ng/season/{}.xml", src);
+    let filename = format!("{}.xml", src);
     let mut reader = Reader::from_file(filename).unwrap();
     reader.trim_text(true);
     let mut txt = Vec::new();
@@ -81,9 +81,38 @@ fn read_and_filter(src: &str, filters: &HashMap<String, String>) -> Division {
 
         buf.clear();
     }
+    postprocessing(&mut data);
     data
-
 }
+fn postprocessing(data: &mut Division) {
+    for team in data.teams.iter_mut() {
+        // Parse the blackout to produce separate black_home and
+        // black_away attributes.
+        let mut home = vec![];
+        let mut away = vec![];
+        if team.contains_key("blackout") {
+            let blackouts = team.get("blackout").unwrap();
+            for blackout in blackouts.split(",") {
+                let blackout = blackout.trim().to_lowercase();
+                let desc = blackout.split("  ").take(2).collect::<Vec<&str>>();
+                if let [date, home_or_away] = &desc[..] {
+                    if home_or_away.contains("home") {
+                        home.push(format!("{}", date));
+                    }
+                    if home_or_away.contains("away") {
+                        away.push(format!("{}", date));
+                    }
+                } else {
+                    home.push(desc[0].to_string());
+                    away.push(desc[0].to_string());
+                }
+            }
+        }
+        team.insert("black_home".to_string(), home.join(","));
+        team.insert("black_away".to_string(), away.join(","));
+    }
+}
+
 fn show(data: &Division) {
     println!("\nInteresting Fields (number of items is between 1 and 10)");
     let mut attrs = Vec::new();
@@ -143,13 +172,14 @@ fn main() {
         }
     }
 
-    let input    = matches.value_of("INPUT").unwrap();
-    let data     = read_and_filter(input, &filters);
+    let input = matches.value_of("INPUT").unwrap();
+    let data = read_and_filter(input, &filters);
+
     if matches.is_present("show") {
         show(&data);
     }
     if let Some(output) = matches.value_of("output") {
-        let filename = format!("/repos/soccer_ng/season/{}.json", output);
+        let filename = format!("{}.json", output);
         let outfile  = File::create(&filename).unwrap();
         let _result  = serde_json::to_writer_pretty(outfile, &data);
         println!("\nCreated {}\n{} teams written", &filename, data.teams.len());

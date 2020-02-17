@@ -1,6 +1,10 @@
+import argparse
+import sys
 import svgwrite as svg
-import json
 from collections import defaultdict
+from modules.database import get_db
+from modules.team_report import get_teams
+
 
 BAR = 14
 HEIGHT = BAR*3
@@ -47,25 +51,37 @@ def timebar(doc, times, x, y, fill) :
     group.add(doc.text(f"{pp(total//num)}", insert=(sx+5,BAR-2)))
     return group, total
 
+def get_pairings(db, division, label):
+    cursor = db.cursor()
+    cursor.execute('''
+        SELECT pairing.id, home, away, cost 
+        FROM pairing
+        LEFT JOIN division on division.id=division_id
+        WHERE division.label=%s
+        AND pairing.label=%s''', (division, label))
+    return cursor.fetchall()
 
-def process(data, outfile):
+def process(db, division, label, outfile):
+    pairings = get_pairings(db, division, label)
+    teams    = get_teams(db, division)
+
     homes = defaultdict(list)
     aways = defaultdict(list)
-    for _, home, away, t in data['pairings']:
+    for _, home, away, t in pairings:
         homes[home].append(t)
         aways[away].append(t)
 
-    rows = len(data['teams']) + 1
+    rows = len(teams) + 1
     doc = svg.Drawing(filename=outfile,
                       style=label_style,
                       size=("100%", rows*HEIGHT),)
     base = 400
     ends = []
-    for i, team in enumerate(data['teams']):
+    for i, team in enumerate(teams):
         y = (i+1)*HEIGHT
-        doc.add(doc.text(team['name'], text_anchor="end", insert = (base-10, y)))
+        doc.add(doc.text(team.name, text_anchor="end", insert = (base-10, y)))
 
-        key = team['flt_pos']
+        key = team.id
         group, end = timebar(doc, aways[key], base, y-5, '#66cc99')
         doc.add(group)
         ends.append(end)
@@ -88,15 +104,12 @@ def process(data, outfile):
 
 
 if __name__ == '__main__':
-    import argparse
-    import sys
-
     # test purposes
     parser = argparse.ArgumentParser()
     parser.add_argument('division')
+    parser.add_argument('label', nargs='?', default='Default')
+
     args = parser.parse_args()
-    infile = '{}.json'.format(args.division)
-    outfile = '{}.svg'.format(args.division)
-    with open(infile) as fh:
-        data = json.load(fh)
-        doc = process(data, outfile)
+    db = get_db()
+    outfile = '../season/{}.svg'.format(args.division)
+    pairings = process(db, args.division, args.label, outfile)

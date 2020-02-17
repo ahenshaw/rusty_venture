@@ -1,7 +1,10 @@
-import json
+import sys
 from argparse import ArgumentParser
 from gurobipy import *
 from collections import defaultdict
+from itertools import groupby
+
+from modules.database import get_db
 
 def balance(pairings, t, results = None, time_limit=300):
     
@@ -91,12 +94,24 @@ def balance(pairings, t, results = None, time_limit=300):
             results.add(xv)
     return results
 
-def extract(division):
+
+def get_pairings(db, division_id):
+    cursor = db.cursor()
+    cursor.execute('''SELECT pairing.label, round, home, away, cost
+                      FROM pairing 
+                      WHERE division_id=%s
+                      ORDER BY pairing.label''', (division_id))
+    results = []
+    for k, v in groupby(cursor.fetchall(), key=lambda x:x[0]):
+        results.append((k, [x[1:] for x in v]))
+    return dict(results)
+
+def extract(original):
     times   = {}
     mapping = {}
-    pairings   = defaultdict(list)
+    pairings = defaultdict(list)
     paired = set()
-    for _, home, away, time in division['pairings']:
+    for _, home, away, time in original:
         if home not in mapping:
             mapping[home] = len(mapping)
 
@@ -121,31 +136,38 @@ def extract(division):
 def get_params():
     parser = ArgumentParser()
     parser.add_argument('division', help='Team agegroup or division')
+    parser.add_argument('label', nargs='?', default='Default')
+    parser.add_argument('-t', '--timeout', type=int, default=300, help='Timeout for solver')
     params = parser.parse_args()
     return params
 
 if __name__ == '__main__':
+    db = get_db()
     params = get_params()
-    filename = "{}.json".format(params.division)
-    with open(filename) as fh:
-        division = json.load(fh)
-    pairings, times, mapping = extract(division)
+    cursor = db.cursor()
+    cursor.execute('SELECT id FROM division where label=%s', params.division)
+    division_id, = cursor.fetchone()
+
+    try:
+        original = get_pairings(db, division_id)[params.label]
+    except KeyError:
+        print(f'No pairings for division "{params.division}" with label "{params.label}"')
+        sys.exit()
+    pairings, times, mapping = extract(original)
 
     inv_map = dict([(x,y) for (y,x) in mapping.items()])
     for key, value in mapping.items():
         print(key, [inv_map[x] for x in pairings[value]])
     print(mapping)
     print('Number of teams: {}'.format(len(pairings)))
-    results = balance(pairings, times)
+    results = balance(pairings, times, time_limit=params.timeout)
 
-    json.dump(list(results), open('results.json', 'w'))
-    results = balance(pairings, times, results)
-    json.dump(list(results), open('results2.json', 'w'))
+    results = balance(pairings, times, results, time_limit=params.timeout)
 
     played_earlier = set()
     schedule = defaultdict(list)
     pairings = []
-    for r, home, away, time in division['pairings']:
+    for r, home, away, time in original:
         h = mapping[home]
         v = mapping[away]
 
@@ -161,16 +183,19 @@ if __name__ == '__main__':
             # if not in results as (h,v) then it is as (v,h), so swap home and away
             if (h, v) not in results:
                 home, away = away, home
-        pairings.append((r, home, away, time))
-        schedule[home].append(away+' ')
-        schedule[away].append(home+'*')
-    division['pairings'] = pairings
-    with open(filename, 'w') as fh:
-        json.dump(division, fh, indent=4)
+        pairings.append((division_id, params.label, r, home, away, time))
+        schedule[home].append(str(away)+' ')
+        schedule[away].append(str(home)+'*')
 
-    # print schedule (* means away match)
-    for t in sorted(schedule, key=lambda x: int(x[1:])):
-        print('{:3s}: '.format(t), end='')
-        for o in schedule[t]:
-            print('{:4s}'.format(o), end=' ')
-        print()
+    if pairings:
+        cursor.execute('''DELETE FROM pairing 
+                          WHERE division_id=%s 
+                          AND label=%s''', (division_id, params.label))
+        cursor.executemany('INSERT INTO pairing (division_id, label, round, home, away, cost) VALUES (%s, %s, %s, %s, %s, %s)', pairings)
+        db.commit()
+    # # print schedule (* means away match)
+    # for t in sorted(schedule, key=lambda x: int(x[1:])):
+    #     print('{:3s}: '.format(t), end='')
+    #     for o in schedule[t]:
+    #         print('{:4s}'.format(o), end=' ')
+    #     print()

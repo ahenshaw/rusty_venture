@@ -1,0 +1,27 @@
+<html>
+<head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <title>%s</title>
+    <link href="template.css" rel="stylesheet">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <script type="text/javascript" src="grid.js"></script>
+</head>    
+<body onload="load_games()">
+<table class="controls">
+    <tr><td><input id="save_button" type="button" value="Save changes"></td>
+        <td><div style="width:2em"></div></td>
+        <td><b>Teams:</b></td>
+        <td><div class="highlight_home">Home</div></td>
+        <td><div class="highlight_away">Visitor</div></td>
+        <td><div style="width:4em"></div></td>
+        <td><b>Blackouts:</b></td>
+        <td><div class="legend_blackout">No games</div></td>
+        <td><div class="legend_home_black">Away games only</div></td>
+        <td><div class="legend_away_black">Home games only</div></td>
+    </tr>
+</table>
+%s
+<p>
+<div id="debug"></div>
+</body>
+</html>

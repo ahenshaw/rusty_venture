@@ -20,6 +20,7 @@ const MAP: &str = "Comment        comment
     FlightPosition flt_pos 
     textbox49      flight 
     venue          venue 
+    responseName1  venuex
     SubmissionDate submission_date";
 
 type Team = HashMap<String, String>;
@@ -33,6 +34,7 @@ fn read_and_filter(src: &str, filters: &HashMap<String, String>) -> Division {
     let mut data = Division{teams: Vec::new(),};
 
     let filename = format!("{}.xml", src);
+    dbg!(&filename);
     let mut reader = Reader::from_file(filename).unwrap();
     reader.trim_text(true);
     let mut txt = Vec::new();
@@ -44,12 +46,12 @@ fn read_and_filter(src: &str, filters: &HashMap<String, String>) -> Division {
         mapping.insert(vals[0].to_string(), vals[1].to_string());
     }
     //let filters: HashMap<_, _> = vec![("flight".to_string(), "Competitive")].into_iter().collect();
+    let mut fields:Team = HashMap::new();
     loop {
         match reader.read_event(&mut buf) {
             Ok(Event::Empty(ref e)) => {
                 match e.name() {
-                    b"Detail" => {
-                        let mut fields:Team = HashMap::new();
+                    b"fieldTitle" => {
                         for attr in e.attributes() {
                             let attr   = attr.unwrap();
                             let key    = format!("{}", String::from_utf8_lossy(attr.key));
@@ -59,6 +61,30 @@ fn read_and_filter(src: &str, filters: &HashMap<String, String>) -> Division {
                                 fields.insert(mapping[&key].clone(), value);
                             }
                         }
+                    },
+                    _ => {},
+                }
+            },
+            Ok(Event::Start(ref e)) => {
+                match e.name() {
+                    b"Detail" => {
+                        fields = HashMap::new();
+                        for attr in e.attributes() {
+                            let attr   = attr.unwrap();
+                            let key    = format!("{}", String::from_utf8_lossy(attr.key));
+                            let bvalue = attr.value.into_owned();
+                            let value  = format!("{}", String::from_utf8_lossy(&bvalue));
+                            if mapping.contains_key(&key) {
+                                fields.insert(mapping[&key].clone(), value);
+                            }
+                        }
+                    },
+                    _ => {},
+                }
+            },
+            Ok(Event::End(ref e)) => {
+                match e.name() {
+                    b"Detail" => {
                         //println!("{:?}", fields);
                         let mut ok = true;   
                         for (k, v) in filters.iter() {
@@ -67,10 +93,11 @@ fn read_and_filter(src: &str, filters: &HashMap<String, String>) -> Division {
                             }
                         }
                         if ok {
-                            data.teams.push(fields);
+                            data.teams.push(fields.clone());
                         }
+                        
                     },
-                    _ => {},
+                    _ => (),
                 }
             },
             Ok(Event::Text(e)) => txt.push(e.unescape_and_decode(&reader).unwrap()),

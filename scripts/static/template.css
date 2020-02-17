@@ -1,0 +1,113 @@
+table.controls td {
+    background-color:white;
+    vertical-align: top;
+}
+table.gamegrid {
+    font-family:verdana;
+    font-size:10pt;
+    border-collapse:collapse;
+}
+table.gamegrid td {
+    border:1px solid gray;
+    cursor:pointer;
+    text-align:center;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -o-user-select: none;
+    user-select: none;
+}
+table.gamegrid th.rh {
+    text-align: left;
+    padding-right:5px;
+    cursor:pointer;
+}
+table.gamegrid th {
+    font-weight:normal;
+    border:1px solid gray;
+    text-align:center;
+    padding:5px;
+    font-size:8pt;
+    background-color:#CCF;
+    color:black;
+    cursor:pointer;
+
+}
+table.gamegrid td {
+    font-size:8pt;
+}
+table.gamegrid td.a1 {
+    border-left: solid 3px orange;
+    //background-color:#ffd; 
+}
+table.gamegrid td:nth-child(4n) {
+    background-color:#ffe; 
+}
+table.gamegrid td:nth-child(4n+1) {
+    background-color:#ffe; 
+}
+table.gamegrid th.a1 {
+    border-left: solid 3px orange;
+    //background-color:#ffd; 
+}
+table.gamegrid span.away {
+    color: black;
+    font-weight:normal;
+}
+table.gamegrid span.home {
+    color: black;
+    font-weight:normal;
+}
+table.gamegrid td.comment {
+    text-align: left;
+    font-size:  7pt;
+}
+.highlight_home {
+    background-color:afa !important;
+}
+.highlight_cell {
+    border: solid 3px black !important;
+}
+.highlight_away {
+    background-color:fcc !important;
+}
+.all_blackout  {
+    background-image: url("blackout.png") !important; 
+    font-weight: bold;
+    color:  #600000;
+}
+.blackout  {
+    background-image: url("blackout.png") !important; 
+    font-weight: bold;
+    color:  #600000;
+}
+.home_black  {
+    background-image: url("blackout-h.png") !important; 
+    font-weight: bold;
+    color:  #600000;
+}
+.away_black  {
+    background-image: url("blackout-a.png") !important; 
+    font-weight: bold;
+    color:  #600000;
+}
+.highlight_home .blackout{background-color:9e9 !important}
+
+table.controls {
+    font-size:10pt;
+    margin:5px;
+}
+.legend_blackout {
+    background-image: url("blackout.png") !important; 
+    text-align:center;
+}
+.legend_away_black {
+    background-image: url("blackout-a.png") !important; 
+    text-align:center;
+}
+.legend_home_black {
+    background-image: url("blackout-h.png") !important; 
+    text-align:center;
+}
+
+

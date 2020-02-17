@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 import numpy
 import datetime
 import re
@@ -66,7 +67,7 @@ def getDates(dates, end_date):
             new_days.append(date)
     return new_days
         
-def formatGridNew(table_class, teamlist, days, teams):
+def formatGrid(table_class, teamlist, days, teams):
     home_black, away_black, comments, names = getTeamInfo(teams)
     html = []
     html.append('<table class="%s"><tr><th><div style="width:20em">Team</div></th>' % table_class)
@@ -84,7 +85,9 @@ def formatGridNew(table_class, teamlist, days, teams):
     html.append('</tr>')
     
     teamlist = sorted([(names[x], x) for x in teamlist])
+
     for name, team in teamlist:
+        print(name, team)
         html.append('''<tr class="data">
                        <th id="%s:" 
                            class="rh" 
@@ -117,8 +120,8 @@ def makeGrid(games, teams, jsfile):
     home_count = defaultdict(list)
     away_count = defaultdict(list)
         
-    # teamlist = [x.flt_pos for x in teams]
-    teamlist = [str(x.id) for x in teams]
+    teamlist = [x.flt_pos for x in teams]
+    # teamlist = [str(x.id) for x in teams]
     dates = set()
     for gamedate, gametime, home, away in games:
         json_games.append({'date':gamedate, 'home':home, 'away':away})
@@ -146,7 +149,7 @@ def makeGrid(games, teams, jsfile):
         data[visitor][date_index] = -(home+1)
     #filename = '<div id="datafile">%s</div>\n' % os.path.basename(fn)
     #~ return filename + formatGridNew('gamegrid', sorted(teamlist), all_dates, teams)                
-    return formatGridNew('gamegrid', teamlist, all_dates, teams)                
+    return formatGrid('gamegrid', teamlist, all_dates, teams)                
 
 def getTeamInfo(teams):
     home_black = set()
@@ -154,21 +157,27 @@ def getTeamInfo(teams):
     comments  = {}
     names     = {}
     for team in teams:
-        comments[str(team.id)] = team.comment
-        names[str(team.id)]    = team.name
+        comments[team.flt_pos] = team.comment
+        names[team.flt_pos]    = team.name
         for hb in team.black_home:
             home_black.add((team.flt_pos, hb))
         for ab in team.black_away:
             away_black.add((team.flt_pos, ab))
     return home_black, away_black, comments, names
 
-def get_games(db, division):
+def get_games(db, division, teams):
+    lookup = {str(t.id): t.flt_pos for t in teams}
     cursor = db.cursor()
     cursor.execute('''
         SELECT gamedate, gametime, home, away
         FROM game
         WHERE agegroup=%s''', (division,))
-    return cursor.fetchall()
+    result = []
+    for gamedate, gametime, home, away in cursor.fetchall():
+        h = lookup[home]
+        a = lookup[away]
+        result.append((gamedate, gametime, h, a))
+    return result
 
 def get_params():
     parser = ArgumentParser()
@@ -177,8 +186,8 @@ def get_params():
     return params
 
 if __name__ == '__main__':
-    import sys
-    sys.argv.append('B16R')
+    # import sys
+    # sys.argv.append('B16R')
     args = get_params()
     db   = get_db()
     output    = '../output/%s.html' % args.division
@@ -187,7 +196,7 @@ if __name__ == '__main__':
     teams = sorted(get_teams(db, args.division))
     # for team in teams:
     #     print(team.flt_pos, team.name)
-    games = get_games(db, args.division)
+    games = get_games(db, args.division, teams)
     out = open(output, 'w')
     js_out = open(js_output, 'w')
     out.write(TEMPLATE % (args.division, makeGrid(games, teams, js_out)))

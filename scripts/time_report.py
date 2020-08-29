@@ -33,6 +33,7 @@ def pp(minutes):
         return f'{hr}h{minute:d}m'
 
 def timebar(doc, times, x, y, fill) :
+    times.sort()
     group = doc.svg(x=x, y=y, style=bar_style)
     sx = 0
     longest = 0
@@ -48,7 +49,10 @@ def timebar(doc, times, x, y, fill) :
                   size=(width, BAR)))
         sx += width
     num = len(times)
-    group.add(doc.text(f"{pp(total//num)}", insert=(sx+5,BAR-2)))
+    try:
+        group.add(doc.text(f"{pp(total//num)}", insert=(sx+5,BAR-2)))
+    except ZeroDivisionError:
+        pass
     return group, total
 
 def get_pairings(db, division, label):
@@ -79,13 +83,16 @@ def process(db, division, label, outfile):
     ends = []
     for i, team in enumerate(teams):
         y = (i+1)*HEIGHT
+        print(team.name)
         doc.add(doc.text(team.name, text_anchor="end", insert = (base-10, y)))
 
         key = team.id
+        print(aways[key])
         group, end = timebar(doc, aways[key], base, y-5, '#66cc99')
         doc.add(group)
         ends.append(end)
 
+        print(homes[key])
         group, end = timebar(doc, homes[key], base, y-5-BAR, '#cc667f')
         doc.add(group)
         ends.append(end)

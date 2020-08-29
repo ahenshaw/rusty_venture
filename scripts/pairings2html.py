@@ -8,9 +8,10 @@ from argparse import ArgumentParser
 
 from modules.team_report import get_teams
 from modules.database import get_db
+from modules.calendar_tools import get_season_info
 
-SEASON_END = '2020-05-31'
-BLACKOUTS  = []
+# SEASON_END = '2020-05-17'
+# BLACKOUTS  = []
 TEMPLATE     = open('static/grid_template.html').read()
 
 class Game:
@@ -46,9 +47,9 @@ def getDates(dates, end_date):
     expanded_dates = set()
     
     if end_date:
-        year, month, day = [int(x) for x in end_date.split('-')]
-        date = datetime.date(year, month, day)
-        expanded_dates.add(date.isocalendar())
+        # year, month, day = [int(x) for x in end_date.split('-')]
+        # date = datetime.date(year, month, day)
+        expanded_dates.add(end_date.isocalendar())
         
     for date in dates:
         days.add(date.isoweekday())
@@ -67,14 +68,13 @@ def getDates(dates, end_date):
             new_days.append(date)
     return new_days
         
-def formatGrid(table_class, teamlist, days, teams):
+def formatGrid(table_class, teamlist, days, teams, global_blackouts):
     home_black, away_black, comments, names = getTeamInfo(teams)
     html = []
     html.append('<table class="%s"><tr><th><div style="width:20em">Team</div></th>' % table_class)
     all_black = set()
-    for date in BLACKOUTS:
-        year, month, day = [int(x) for x in date.split('-')]
-        all_black.add(datetime.date(year, month, day))
+    for date in global_blackouts:
+        all_black.add(date)
         
     for day in days:
         y, w, d = day.isocalendar()
@@ -115,7 +115,7 @@ def formatGrid(table_class, teamlist, days, teams):
     html.append('</table>')
     return '\n'.join(html)
     
-def makeGrid(games, teams, jsfile):
+def makeGrid(games, teams, end_date, global_blackouts):
     json_games = []
     home_count = defaultdict(list)
     away_count = defaultdict(list)
@@ -133,7 +133,7 @@ def makeGrid(games, teams, jsfile):
     
     # create list of dates that might be used for game days 
     # (includes some days that may not be used)
-    all_dates = getDates(dates, SEASON_END)
+    all_dates = getDates(dates, end_date)
     dates = dict([(x,i) for (i, x) in enumerate(sorted(all_dates))])
     data = numpy.zeros((len(teams), len(all_dates)), dtype=int)
 
@@ -149,7 +149,7 @@ def makeGrid(games, teams, jsfile):
         data[visitor][date_index] = -(home+1)
     #filename = '<div id="datafile">%s</div>\n' % os.path.basename(fn)
     #~ return filename + formatGridNew('gamegrid', sorted(teamlist), all_dates, teams)                
-    return formatGrid('gamegrid', teamlist, all_dates, teams)                
+    return formatGrid('gamegrid', teamlist, all_dates, teams, global_blackouts)                
 
 def getTeamInfo(teams):
     home_black = set()
@@ -173,15 +173,17 @@ def get_games(db, division, teams):
         FROM game
         WHERE agegroup=%s''', (division,))
     result = []
-    for gamedate, gametime, home, away in cursor.fetchall():
-        h = lookup[home]
-        a = lookup[away]
-        result.append((gamedate, gametime, h, a))
-    return result
+    # for gamedate, gametime, home, away in cursor.fetchall():
+    #     h = lookup[home]
+    #     a = lookup[away]
+    #     result.append((gamedate, gametime, h, a))
+    # return result
+    return cursor.fetchall()
 
 def get_params():
     parser = ArgumentParser()
     parser.add_argument('division', help='Team agegroup or division')
+    parser.add_argument('season')
     params = parser.parse_args()
     return params
 
@@ -190,14 +192,13 @@ if __name__ == '__main__':
     # sys.argv.append('B16R')
     args = get_params()
     db   = get_db()
+    start_date, end_date, global_blackouts = get_season_info(db, args.season)
     output    = '../output/%s.html' % args.division
-    js_output = '../output/%s-games.js'% args.division
 
     teams = sorted(get_teams(db, args.division))
     # for team in teams:
     #     print(team.flt_pos, team.name)
     games = get_games(db, args.division, teams)
     out = open(output, 'w')
-    js_out = open(js_output, 'w')
-    out.write(TEMPLATE % (args.division, makeGrid(games, teams, js_out)))
+    out.write(TEMPLATE % (args.division, makeGrid(games, teams, end_date, global_blackouts)))
     

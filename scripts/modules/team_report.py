@@ -25,8 +25,8 @@ class Team:
         away = '  Away blackout: %s' % self.black_away if self.black_away else '' 
         other = '{:>4s} {:16s}  {:16s}'.format(self.flt_pos, truncate(self.clubname, 16), truncate(self.name, 16))
         
-        return '\n'.join(filter(None, [other, home, away]))
-        # return other
+        # return '\n'.join(filter(None, [other, home, away]))
+        return other
         
     def __lt__(self, other):
         return (self.name < other.name)

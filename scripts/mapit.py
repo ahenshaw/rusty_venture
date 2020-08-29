@@ -37,7 +37,7 @@ parser.add_argument("division")
 args = parser.parse_args()
 
 db = get_db()
-output   = 'c:/repos/soccer_ng/season/maps/%s.html' % args.division
+output   = 'c:/repos/soccer/season/maps/%s.html' % args.division
 # filename = '%s.json' % args.division
 # with open(filename) as fh:
 #     division = json.load(fh)

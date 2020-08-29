@@ -11,7 +11,7 @@ def show_venues(db, division, fix=False):
     cursor.execute('''SELECT label, id FROM alias''')
     aliases = dict(cursor.fetchall())
     cursor.execute('''
-        SELECT team.name, declaredvenue, coalesce(team.venue, '--'), venue.name, flt_pos
+        SELECT team.name, coalesce(declaredvenue, '--'), coalesce(team.venue, '--'), venue.name, flt_pos
         FROM team
         LEFT JOIN venue ON venue.id = venue_id 
         LEFT JOIN division ON division.id = division_id

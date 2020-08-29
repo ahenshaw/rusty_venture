@@ -7,8 +7,12 @@ from gurobipy import *
 import arrow
 
 # custom modules
-from modules.database    import get_db
-from modules.team_report import get_teams
+from modules.database       import get_db
+from modules.team_report    import get_teams
+from modules.calendar_tools import get_season_info
+
+BLACKOUT_PENALTY = 200
+TIMEOUT = 60
 
 class Blackouts:
     def __init__(self, defaults=None):
@@ -17,6 +21,7 @@ class Blackouts:
         self.away   = defaultdict(set)
         if defaults:
             self.all |= set(defaults)
+        print(self.all)
 
     def is_away_blackout(self, team, day):
         return (day in self.all) or (day in self.away[team])
@@ -50,11 +55,6 @@ def balance(games, weights, blackouts, rounds, num_requested):
     x = {}                        # model variables with bool value for each team, game_id, and possible date slot
     z = {}                        # per team scoring for goodness of schedule
     
-    # for d1, d2 in weekends(weights):
-    #     print(d1, d2)
-    # import sys
-    # sys.exit()
-
     doubles = set()
     reverse = {}
     for h, a in games:
@@ -66,9 +66,8 @@ def balance(games, weights, blackouts, rounds, num_requested):
         my_games[h].append(gid)  # this team plays in this game
         my_games[a].append(gid)  # so does this team
 
-    print('doubles:', doubles)
     m = Model()
-    m.setParam('TimeLimit', 60)
+    m.setParam('TimeLimit', TIMEOUT)
 
     # Initialize the x variables in the model
     for team, game_list in my_games.items():
@@ -95,33 +94,35 @@ def balance(games, weights, blackouts, rounds, num_requested):
             m.addConstr(expr, GRB.EQUAL, 0)
 
     # For each team, compute sum of game day weights times 1 (game) or 0 (no game) or mark blackouts
+    # print('\n\n\n marking blackouts')
     for team, game_list in my_games.items():
         expr = LinExpr()
         for game in game_list:
             h, a = game_ids[game]
             for d, value in weights.items():
                 if blackouts.is_blackout(team, d, h, a):
-                #if (h == team and blackouts.is_home_blackout(team, d)) or (a == team and blackouts.is_away_blackout(team, d)):
-                    value = 100  # override normal weight value
+                    value = BLACKOUT_PENALTY  # override normal weight value
                 expr.addTerms(value, x[team, game, d, ])
         expr.addTerms(-1, z[team])
         m.addConstr(expr, GRB.LESS_EQUAL, 0)
-
-    # For each team, try to eliminate open weekends for num_requested-1 weekends
-    for team, game_list in my_games.items():
-        for d1, d2 in list(weekends(sorted(weights)))[:(num_requested-1)]:
-                possibles = []
-                for game in game_list:
-                    h, a = game_ids[game]
-                    if not blackouts.is_blackout(team, d1, h, a):
-                        possibles.append((d1, game))
-                    if not blackouts.is_blackout(team, d2, h, a):
-                        possibles.append((d2, game))
-                expr = LinExpr()
-                for d, game in possibles:
-                    expr.addTerms(value, x[team, game, d])
-                if possibles:
-                    m.addConstr(expr, GRB.GREATER_EQUAL, 1)
+    # print('done')
+    # sys.exit()
+    # For each team, try to eliminate open weekends for num_requested-4 weekends
+    if False: # avoid open weekends
+        for team, game_list in my_games.items():
+            for d1, d2 in list(weekends(sorted(weights)))[:(num_requested-4)]:
+                    possibles = []
+                    for game in game_list:
+                        h, a = game_ids[game]
+                        if not blackouts.is_blackout(team, d1, h, a):
+                            possibles.append((d1, game))
+                        if not blackouts.is_blackout(team, d2, h, a):
+                            possibles.append((d2, game))
+                    expr = LinExpr()
+                    for d, game in possibles:
+                        expr.addTerms(value, x[team, game, d])
+                    if possibles:
+                        m.addConstr(expr, GRB.GREATER_EQUAL, 1)
 
     # For each team, the game count must equal the number of games to be played
     for team, game_list in my_games.items():
@@ -174,17 +175,18 @@ def balance(games, weights, blackouts, rounds, num_requested):
             team, game, date = x_key
             if game not in recorded:
                 h, a = game_ids[game]
+                if 'A5' in (h,a):
+                    print(h, a, date)
                 results.append((date, h, a))
                 recorded.add(game)
+    print('returning results', len(results))
     return results
 
 def get_params():
     parser = ArgumentParser()
     parser.add_argument('division', help='Team agegroup or division')
+    parser.add_argument('season')
     parser.add_argument('label', nargs='?', default='Default')
-    parser.add_argument('--blackout', default=[])
-    parser.add_argument('--start', default='2020-03-01')
-    parser.add_argument('--end', default='2020-06-01')
     parser.add_argument('-r', '--rounds', type=int, default=10)
     parser.add_argument('-t', '--timeout', type=int, default=30, help='Timeout for solver')
     params = parser.parse_args()
@@ -204,21 +206,20 @@ def get_games(db, division, label):
 
 db = get_db()
 args = get_params()
+start, end, global_blackouts = get_season_info(db, args.season)
+start = arrow.get(start)
+end   = arrow.get(end)
+
 teams = sorted(get_teams(db, args.division))
-blackouts = Blackouts([arrow.get(x) for x in args.blackout])
+
+blackouts = Blackouts([arrow.get(x) for x in global_blackouts])
+
 for team in teams:
     blackouts.set_away(team.flt_pos, [arrow.get(x) for x in team.black_away])
     blackouts.set_home(team.flt_pos, [arrow.get(x) for x in team.black_home])
 
-print('\n\n\n========= start blackouts ============')
-print(blackouts.home)
-print('========= end blackouts ============')
-
-start = arrow.get(args.start)
-end   = arrow.get(args.end)
-
-weights   = {}
-rounds = {}
+weights = {}
+rounds  = {}
 for i, saturday in enumerate(arrow.Arrow.range('week', start, end)):
     sunday = saturday.shift(days=1)
     rounds[saturday]  = i
@@ -232,19 +233,20 @@ for i, saturday in enumerate(arrow.Arrow.range('week', start, end)):
         weights[sunday]   = 25
 
 
-# games = [tuple(map(str.strip,game.split('\t'))) for game in open('season/%s.balanced' % args.division)]
-games = get_games(db, args.division, args.label)
+lookup = {t.id:t.flt_pos for t in teams}
+games = []
+for home, away in get_games(db, args.division, args.label):
+    games.append((lookup[home], lookup[away]))
 print('Number of games:', len(games))
 num_requested = args.rounds
 results = balance(games, weights, blackouts, rounds, num_requested)
 
-# fh = open('%s.csv'%args.division, 'w')
-# fh.write('GameNum,Date,Time,FieldID,HomeTeam,AwayTeam,RoundTypeCode\n')
 records = []
 for d, h, a in sorted(results):
-    # fh.write('0,{},00:00,0,{},{},B\n'.format(d.format('MM/DD/YYYY'), h, a))
     records.append((args.division, d.format('YYYY-MM-DD'), h, a, '00:00:00'))
-print(f'Writing {len(records)} records into database')
 cursor = db.cursor()
+cursor.execute('DELETE FROM game WHERE agegroup=%s', (args.division,))
+db.commit()
+print(f'Writing {len(records)} records into database')
 cursor.executemany('INSERT INTO game SET agegroup=%s, gamedate=%s, home=%s, away=%s, gametime=%s', records)
 db.commit()
